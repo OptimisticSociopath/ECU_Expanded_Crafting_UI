@@ -1,0 +1,42 @@
+[V_OS] ECU - Expanded Crafting UI 1.0.0
+Author: Vargor
+For SPT 4.1.6. Client plugin only.
+
+INSTALL WITH SSPTMM
+1. Close the game and SPT server.
+2. In SSPTMM, select Install from file and choose ECU-v1.0.0-SSPTMM.zip.
+3. Start SPT normally. Ingredient wrapping is enabled by default.
+
+MANUAL INSTALL
+1. Close the game and SPT server.
+2. Open the ZIP and copy its contents into your SPT game folder, the folder
+   containing EscapeFromTarkov.exe. Merge the BepInEx folder when prompted.
+3. Check that this file exists:
+   BepInEx/plugins/ECU/ECU.Client.dll
+
+UPGRADING FROM RPD MODERNIZATION INCLUDED
+Remove the old combined mod through your manager before installing ECU and WMI.
+For a manual installation, remove only these old mod folders:
+  BepInEx/plugins/RPD_Modernization_Included
+  SPT_Runtime/user/mods/RPD_Modernization_Included
+If you previously placed its DLLs elsewhere, remove those duplicate copies too.
+Do not delete the BepInEx/plugins or SPT_Runtime/user/mods parent folders.
+Install WMI as well before opening a profile that already contains Heavy Gunner
+items or uses the old recipes. ECU provides UI only; WMI preserves those items.
+The old combined mod is incompatible with ECU. It must not remain enabled.
+
+SETTINGS
+F12 -> [V_OS] ECU - Expanded Crafting UI -> Crafting UI -> Wrap ingredients.
+The new plugin has its own config; the default is enabled.
+ECU does not require WMI or WTT-ContentBackport.
+
+CHECK
+Open a normal crafting recipe with more than seven ingredient/tool tiles.
+Eight tiles should display as 7+1, nine as 7+2, fifteen as 7+7+1.
+If there are no such recipes installed, ECU has nothing to change.
+
+UNINSTALL
+Remove ECU in SSPTMM, or remove BepInEx/plugins/ECU manually while the game is
+closed. Recipes remain installed by their own mods and return to the native UI.
+The included icon.png is publication artwork. SSPTMM 1.4.3 uses catalog images
+for its cards and does not automatically use a local mod's icon.png.

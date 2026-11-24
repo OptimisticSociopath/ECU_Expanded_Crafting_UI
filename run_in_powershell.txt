@@ -1,0 +1,205 @@
+
+& {
+    $ErrorActionPreference = 'Stop'
+    Set-StrictMode -Version Latest
+
+    try {
+        $downloads = Join-Path $env:USERPROFILE 'Downloads'
+        $documents = [Environment]::GetFolderPath('MyDocuments')
+        $spt = 'C:\SPT'
+
+        $source = Join-Path $downloads 'ECU-v1.0.0-SOURCE.zip'
+        $destination = Join-Path $downloads 'ECU-v1.0.0.zip'
+
+        $lab = Join-Path $documents 'ECU_LAB'
+
+        $runId = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' +
+            [Guid]::NewGuid().ToString('N').Substring(0,8)
+
+        $work = Join-Path $lab $runId
+
+        Write-Host 'STARTING|ECU_1.0.0' -ForegroundColor Cyan
+
+        if ($PSVersionTable.PSVersion.Major -ne 5 -or
+            $PSVersionTable.PSVersion.Minor -ne 1 -or
+            -not [Environment]::Is64BitProcess) {
+            throw 'WINDOWS_POWERSHELL_5_1_X64_REQUIRED'
+        }
+
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+            throw "SOURCE_ZIP_NOT_FOUND=$source"
+        }
+
+        if (-not (Test-Path -LiteralPath $spt -PathType Container)) {
+            throw "SPT_NOT_FOUND=$spt"
+        }
+
+        if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+            throw 'DOTNET_SDK_NOT_FOUND'
+        }
+
+        if (Test-Path -LiteralPath $destination) {
+            throw "OUTPUT_ALREADY_EXISTS=$destination"
+        }
+
+        Write-Host 'PASS|PREFLIGHT' -ForegroundColor Green
+
+        $sourceHash = (
+            Get-FileHash -LiteralPath $source -Algorithm SHA256
+        ).Hash
+
+        New-Item -ItemType Directory -Path $work -Force | Out-Null
+
+        Expand-Archive -LiteralPath $source -DestinationPath $work
+
+        Write-Host 'PASS|SOURCE_EXTRACTED' -ForegroundColor Green
+
+        $required = @(
+            'Build.ps1'
+            'src\ECU.Client.csproj'
+            'src\ExpandedCraftingUiPlugin.cs'
+            'NuGet.Config'
+            'assets\icon.png'
+            'docs\INSTALL.txt'
+        )
+
+        foreach ($file in $required) {
+            if (-not (Test-Path -LiteralPath (Join-Path $work $file) -PathType Leaf)) {
+                throw "SOURCE_FILE_MISSING=$file"
+            }
+        }
+
+        Write-Host 'PASS|SOURCE_STRUCTURE' -ForegroundColor Green
+
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+        $builder = Join-Path $work 'Build.ps1'
+
+        Unblock-File -LiteralPath $builder
+
+        Write-Host 'STARTING|BUILD' -ForegroundColor Cyan
+
+        Push-Location -LiteralPath $work
+
+        try {
+            $buildOutput = @(
+                & $builder -SptRoot $spt |
+                    ForEach-Object {
+                        Write-Host $_
+                        $_
+                    }
+            )
+        }
+        finally {
+            Pop-Location
+        }
+
+        $packageLine = $buildOutput |
+            ForEach-Object { [string]$_ } |
+            Where-Object { $_ -like 'PACKAGE=*' } |
+            Select-Object -Last 1
+
+        if (-not $packageLine) {
+            throw 'BUILD_PACKAGE_NOT_REPORTED'
+        }
+
+        $zip = $packageLine.Substring(8)
+
+        if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            throw "BUILD_PACKAGE_NOT_FOUND=$zip"
+        }
+
+        Write-Host 'PASS|BUILD' -ForegroundColor Green
+
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+        $archive = [IO.Compression.ZipFile]::OpenRead($zip)
+
+        try {
+            $expectedEntries = @(
+                'BepInEx/plugins/ECU/ECU.Client.dll'
+                'BepInEx/plugins/ECU/icon.png'
+                'ECU-INSTALL.txt'
+            )
+
+            $actualEntries = @(
+                $archive.Entries |
+                    ForEach-Object {
+                        $_.FullName.Replace('\', '/')
+                    }
+            )
+
+            $differences = @(
+                Compare-Object `
+                    -ReferenceObject $expectedEntries `
+                    -DifferenceObject $actualEntries
+            )
+
+            if ($differences.Count -ne 0) {
+                throw 'PACKAGE_STRUCTURE_MISMATCH'
+            }
+
+            foreach ($entry in $archive.Entries) {
+                if ($entry.Length -le 0) {
+                    throw "EMPTY_PACKAGE_ENTRY=$($entry.FullName)"
+                }
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
+
+        Write-Host 'PASS|PACKAGE_STRUCTURE|3/3' -ForegroundColor Green
+
+        $sourceHashAfter = (
+            Get-FileHash -LiteralPath $source -Algorithm SHA256
+        ).Hash
+
+        if ($sourceHash -ne $sourceHashAfter) {
+            throw 'ORIGINAL_SOURCE_CHANGED'
+        }
+
+        Write-Host 'PASS|ORIGINAL_SOURCE_UNCHANGED' -ForegroundColor Green
+
+        $buildHash = (
+            Get-FileHash -LiteralPath $zip -Algorithm SHA256
+        ).Hash
+
+        [IO.File]::Copy($zip, $destination, $false)
+
+        $exportHash = (
+            Get-FileHash -LiteralPath $destination -Algorithm SHA256
+        ).Hash
+
+        if ($buildHash -ne $exportHash) {
+            throw 'EXPORT_SHA256_MISMATCH'
+        }
+
+        Write-Host ''
+        Write-Host 'PASS|ZIP_EXPORT' -ForegroundColor Green
+        Write-Host 'PASS|SHA256' -ForegroundColor Green
+        Write-Host 'PASS|NO_INSTALL_PERFORMED' -ForegroundColor Green
+
+        Write-Host ''
+        Write-Host '============================================'
+        Write-Host ' MOD: [V_OS] ECU - Expanded Crafting UI'
+        Write-Host ' AUTHOR: Vargor'
+        Write-Host ' VERSION: 1.0.0'
+        Write-Host '============================================'
+        Write-Host ''
+        Write-Host "SHA256=$exportHash"
+        Write-Host "LAB=$work"
+        Write-Host "READY=$destination"
+        Write-Host ''
+        Write-Host 'PASS_READY_MOD_ZIP' -ForegroundColor Green
+
+        Start-Process explorer.exe -ArgumentList (
+            '/select,"' + $destination + '"'
+        )
+    }
+    catch {
+        Write-Host ''
+        Write-Host "FAIL_CLOSED=$($_.Exception.Message)" -ForegroundColor Red
+        throw
+    }
+}
