@@ -28,8 +28,8 @@ ECU supplies a presentation change only. Your server mod remains responsible for
 | `src/CenteredIngredientGrid.cs` | Unity `LayoutGroup` implementation: width, height and tile placement |
 | `tests/LayoutUnityTests.cs` | Tests using Unity's actual layout engine on a reconstructed native hierarchy |
 
-Plugin GUID: `com.optimisticsociopath.expanded-crafting-ui`.
-Harmony owner: `com.optimisticsociopath.expanded-crafting-ui.layout`.
+Plugin GUID: `com.vargor.ecu`.
+Harmony owner: `com.vargor.ecu.layout`.
 Target: SPT 4.1.6, the audited game's Unity UI API, `netstandard2.1`.
 
 ## Hook lifecycle

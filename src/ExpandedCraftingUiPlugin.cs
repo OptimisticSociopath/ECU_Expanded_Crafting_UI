@@ -16,7 +16,7 @@ namespace Vargor.ExpandedCraftingUi
     [BepInIncompatibility("com.optimisticsociopath.rpd-modernization-included")]
     public sealed class ExpandedCraftingUiPlugin : BaseUnityPlugin
     {
-        public const string PluginId = "com.optimisticsociopath.expanded-crafting-ui";
+        public const string PluginId = "com.vargor.ecu";
         private static ExpandedCraftingUiPlugin? _instance;
         private Harmony? _harmony;
         private ConfigEntry<bool> _enabled = null!;
